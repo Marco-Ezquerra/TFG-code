@@ -1,10 +1,10 @@
 program lj  
- !use modulo    !!!Importamos el modulo  
+! use modulo    !!!Importamos el modulo  
  implicit none
 
  integer i,j,nmax,bins,contar,k,binsradial, pasost,u
  integer npart,count,npartmax,nmezcla,pasos, offont,onb
- integer regular,binsmax,npromedio
+ integer regular,binsmax,npromedio, pantalla
  
  real*8 dargon,diametro,T1,T2,kb,margon,d,rnd
  real*8 sigma,v,suma,v1,v2,v3,dt
@@ -15,16 +15,16 @@ program lj
  real*8 energia,dr ,cinetica,potencial
  real*8 sx,sy,sz, t_target,q,zeta,t_targetfinal
  real*8 f,temp,qp,p_target,eta,xmax, ymax,zmax,virial
- real*8 beta, t_final, t_inicial, p0, pf, beta_p
+ real*8 beta, t_final, t_inicial, p0, pf, beta_p,rskin
  real*8 ticpu, tfcpu, tiempocpu
  
  parameter(npartmax=6**3) !numero total de part   !!elegir un numero de particulas que sea riaz cubica de 3
  parameter(dargon=0.84d0) !kg/m^3
  parameter(diametro=1.d0) !! diametro de las partculas de argon !!hay que fijarlo como 1
- parameter(t1=3.d0) !!K
+ parameter(t1=1.d0) !!K
  parameter(kb = 1.d0)
  parameter(margon = 1.d0)
- 
+ parameter(rskin=0.5d0)
  parameter(rcutoff=2.5d0) !!ya esta normalizado con respecto al diametro rcutoff=3*diametro
  parameter(epsilon=1.d0)
  parameter(ecut=4*epsilon*((1.d0/rcutoff**12.d0)+(1.d0/rcutoff**6.d0)))
@@ -72,9 +72,7 @@ program lj
   call CPU_TIME(ticpu) 
   
   npart=6**3
-
-
- ltot=(npart*margon/(dargon))**(1.d0/3.d0) 
+  ltot=(npart*margon/(dargon))**(1.d0/3.d0) 
  print*, ltot ,"L"
   
  lcaja=ltot/(npart)**(1.d0/3.d0) 
@@ -154,6 +152,9 @@ program lj
  
 
 
+
+
+
   xmax=maxval(x)
   print*, xmax
   
@@ -175,14 +176,14 @@ program lj
  print*, "temeratura inicial", t_target
  offont=1 !!TERMOSTATO ENCENDIDO 
  q=500*npart
- call listaverlet(npart, x,y,z, rcutoff, ltot, vecinos, nvecinos)
+ call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
  call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, ltot,potencial)
  open(200, file="evoluciontemp.txt")
  
  onb=0!!!barostato apagado
   do while(nmezcla .lt. pasos)
     if(mod(nmezcla,10) .eq. 0) then 
-     call listaverlet(npart, x,y,z, rcutoff, ltot, vecinos, nvecinos) 
+     call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos) 
      
      sumv2=0.d0
      do i=1,npart
@@ -202,6 +203,7 @@ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potenci
     !  write(12, *) nmezcla, virial
   enddo
   print*, "PRECALENTAMIENTO TERMINADO"   
+  
   close(200)
   !!Despues del precalentamiento vamos a medir para comparar con los resultados finales
   
@@ -225,349 +227,128 @@ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potenci
        histo=0.d0
       print*, "distribucion gr calentamiento terminada"
 
+
+   pasos=1000000
+
+    offont=0 !!TERMOSTATO ENCENDIDO 
+    q=100*npart
+    onb=0
+    t_target=1.d0
+ call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
+ call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, ltot,potencial)
+
+   onb=0!!!barostato apagado
+   u=1
+   print*, "empezamos enfriamiento"
+   nmezcla=0
+   cinetica=100000  !!PARA QUE NO SALGA DEL BUCLE
+  do while(nmezcla .lt. pasos)
+     
+    if(mod(nmezcla,10) .eq. 0) then 
+     call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos) 
+     !call reajuste(npart,vx,vy,vz) !!VCM=0
+     sumv2=0.d0
+     do i=1,npart
+     sumv2=sumv2+vx(i)**2 +vy(i)**2 +vz(i)**2
+      enddo
       
-      
+     endif
+     
+ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial,t_target,q,zeta, offont,qp,p_target,eta,onb,u)
+     nmezcla=nmezcla+1
+    
+   if(mod(nmezcla, 1000) .eq. 0) then
 
-
-
-  
-  sumv2=0.d0
-  do i=1,npart
-   sumv2=sumv2+vx(i)**2 +vy(i)**2 +vz(i)**2
-  enddo
-  print*, "temp final", sumv2/(3.d0*npart)
-  !---------------------------------------------
-  
-  offont=1
-  onb=0
-  pasos=5000000
-  
-  regular=50
-  
-  Q=npart*500
-  zeta=0.d0
-  !t_targetfinal=0.1d0
-      !!!!
-  
-  u=0
-   
-  t_inicial=3.d0
-  t_final=1.d0
-  !t_target=0.3d0   
-  !beta=-log(t_final/t_inicial)/(pasos*dt)  !!!definoendo el paraetro que ocntrola t_target =t_target(1-beta*dt)
-  nmezcla=0
-  
-  call reajuste(npart,vx,vy,vz)
- do while(nmezcla .lt. pasos)
-  
-  if(mod(nmezcla,10) .eq. 0) then  !!cada 10 pasos dt actualizamos la lista de verlet
-
- call listaverlet(npart, x,y,z, rcutoff, ltot, vecinos, nvecinos)
-
-  endif
-  !t_target = t_target * exp(-beta * dt)
-
-
-  if (mod(nmezcla, 2000) == 0) then
-   call reajuste(npart, vx, vy, vz)
-  endif
-
- 
- !call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, epsilon, sigma, ltot,potencial) 
-call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial, t_target,q,zeta,offont,qp,p_target,eta,onb,u)
- !!barostao encendido si offon=0
-
-   !!!!!MEDIDAS DE LA ENERGIA--------------------------------------------------------------------------------
-   if(mod(nmezcla,pasos/100) .eq. 0) then
-    cinetica=0.d0
-  do i=1,npart
+     cinetica=0.d0
+   do i=1,npart
   cinetica=cinetica+(vx(i)**2 +vy(i)**2 +vz(i)**2)
-  enddo
+   enddo
    
     
-    print*, cinetica*0.5d0
+    !print*, cinetica*0.5d0
   !stop "message"
     cinetica=0.5*cinetica/npart
     potencial=potencial/npart
   
     energia=cinetica+potencial
   !print*, cinetica, potencial, energia
-    write(33,*) nmezcla*dt, energia, potencial,cinetica
-    !xmax=maxval(x)
-    !ymax=maxval(y)
-    !zmax=maxval(z)
-    print*, real(nmezcla/real(pasos))*100, "%" , npart/ltot**3 , cinetica*(2.d0/3)
-    !call reajuste(npart,vx,vy,vz)
-    if(cinetica*(2.d0/3) .lt. t_target) then 
-     t_target=cinetica*(2.d0/3)
-     exit
+    pantalla=pantalla+1
+     write(33,*) nmezcla*dt, energia, potencial,cinetica
+     if(mod(pantalla, 10) .eq. 0) then
+     print*, real(nmezcla/real(pasos))*100, "%" , npart/ltot**3 , sumv2*0.5d0*(2.d0/3.d0)/npart
      endif
-    
     endif
-    
 
     
-  nmezcla=nmezcla+1 !!marcador del bucle principla
- 
+       if(t_target .gt. sumv2*0.5d0*(2.d0/3.d0)/npart) then
+       exit
+       print*, t_target, sumv2*0.5d0*(2.d0/3.d0)/npart
+       print*, "salmos del calentamiento"
+      !  dt=0.0002d0
+       
+      !  !cinetica=0.d0
+      !  do j=1, npart
+      !  xacumu(j)=x(j)+xacumu(j)
+      !  yacumu(j)=y(j)+yacumu(j)
+      !  zacumu(j)=z(j)+zacumu(j)
+      !  !cinetica=vx(j)**2+vy(j)**2+vz(j)**2 +cinetica
+      !  enddo
+      
+      !  endif
+    
+      !  if(mod(i, 2000) .eq. 0) then 
+      !     call reajuste(npart, vx,vy,vz)
+          
+       endif
+      
   enddo
+  print*, "Enfriamiento terminado"   !!!hemos utilizado un factor de masa q muy pequeño
+  close(200)
+  !!Despues del precalentamiento vamos a medir para comparar con los resultados finales
+  !!Vamos a promediar las ultimas posiciones
    
-   
-   
-   print*, npart/(ltot**3), "densidad final"
-   print*, "se ha llegado a la densidad final"
-   print*, real(nmezcla/real(pasos))*100, "%"
 
-   !open(25,file="fuerzas.txt")
- 
-  ! do i=1,npart
-  ! write(25,*) fx(i)*dt**2,fy(i)*dt**2,fz(i)*dt**2
-  ! enddo
-  suma=0
- 
- open(26,file="fotofinish.txt")
- do i=1,npart
- !print*,  x(i),y(i),z(i)
- write(26,*) x(i),y(i),z(i)
- 
- enddo
-
- open(277,file="velocidades.txt")
- do i=1,npart
- write(277,*) vx(i),vy(i),vz(i)
- enddo
-  close(277)
-
-
-      vmodu=0.d0
+      open(88,file="fotofinis_sinpromediar.txt")
       do i=1,npart
-      vmodu(i)=sqrt(vx(i)**2 +vy(i)**2 +vz(i)**2)
-      enddo
-      call histograma(vmodu, bins, npart, px, a, b)
-      open(100,file="vfinal.txt")
-      do i=1,bins
-       write(100,*) a+(b-a)*i/bins, px(i)/(b-a)
-      enddo
+ !print*,  x(i),y(i),z(i)
+      write(88,*) x(i),y(i),z(i)
  
-
-
-  call histograma(x, bins, npart, px, a, b)
-  open(27,file="diradial.txt")
-  DO i=1, bins
-   write(27, *) a+(b-a)*i/bins, px(i)
-   enddo
-   close(27)
-
-
-    binsradial=200   !!!importante que hay muchos bins para promediar
-    call gradial(npart, x, y, z, ltot, binsradial,dr, gr,rcontar,HISTO) !!entrada nbins npart y las posiciones
-     open(28,file="gr.txt")
-     open(31, file="histogr.txt")
-     do i=1,binsradial
-      write(28,*) (i-0.5d0)*dr, gr(i)
-      write(31,*) (i-0.5d0)*dr, HISTO(i)
       enddo
-      close(28)
-      close(31)
-      print*, "distribucion gr terminada"
-      !!al parecer g(r) en 1 deberia dar entro a 2-3 
-      lcaja=ltot/(npart)**(1.d0/3)
-      x=0.d0
-      y=0.d0
-      z=0.d0
-      print*, ltot , "longitud final"
-     call posicioninicial(x,y,z,r,ltot,npart,lcaja,diametro,count) 
-         binsradial=50
-         gr=0
+        close(88)
+
+
+        binsradial=80
     call gradial(npart, x, y, z, ltot, binsradial,dr, gr,rcontar,HISTO) !!entrada nbins npart y las posiciones
-     open(128,file="grinicial.txt")
+     open(89,file="grfinish_sinpromediar.txt")
      
      do i=1,binsradial
-      write(128,*) (i-0.5d0)*dr, gr(i)
+      write(89,*) (i-0.5d0)*dr, gr(i)
       enddo
-      close(128)
-      
-      print*, "distribucion gr terminada"
+      close(89)
+       gr=0.d0
+       rcontar=0.d0
+       histo=0.d0
+      print*, "distribucion gr calentamiento terminada"
+     !!!ya hemos cogido los ultimos npromedio posiciones
+    x=xacumu/npromedio
+    y=yacumu/npromedio
+    z=zacumu/npromedio
 
 
 
-      PRINT*, "Empezamos a comprimir el sistema"   !---------------------------------------------------------------------------------------
-      qp=npart*20000.d0
-      eta=0.d0
-      p_target=5.d0
-      onb=1
-      offont=1   
-      t_target=cinetica*(2.d0/3)   !!!velocidadd con la que ha acabo el enfriamiento
-      nmezcla=0
 
-      p0 = 2.d0
-      pf = 5.d0
-      beta_p = log(pf/p0)/(pasos*dt)
 
-      do while(nmezcla .lt. pasos)
-  
-  if(mod(nmezcla,10) .eq. 0) then  !!cada 10 pasos dt actualizamos la lista de verlet
-
- call listaverlet(npart, x,y,z, rcutoff, ltot, vecinos, nvecinos)
-
-  endif
-
-  if(mod(nmezcla,2000) .eq. 0) then
-     call reajuste(npart,vx,vy,vz) !!VCM=0
-      endif
-
-      p_target = p0 * exp(beta_p * dt * nmezcla)
- 
- !call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, epsilon, sigma, ltot,potencial) 
-call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial, t_target,q,zeta,offont,qp,p_target,eta,onb,u)
- !!barostao encendido si offon=0
-
-   !!!!!MEDIDAS DE LA ENERGIA--------------------------------------------------------------------------------
-   if(mod(nmezcla,pasos/100) .eq. 0) then
-    cinetica=0.d0
+  open(86,file="fotofinishfinish.txt")
   do i=1,npart
-  cinetica=cinetica+(vx(i)**2 +vy(i)**2 +vz(i)**2)
-  enddo
-   
-    
-    print*, cinetica*0.5d0
-  !stop "message"
-    cinetica=0.5*cinetica/npart
-    potencial=potencial/npart
-  
-    energia=cinetica+potencial
-  !print*, cinetica, potencial, energia
-    write(33,*) nmezcla*dt, energia, potencial,cinetica
-   
-    print*, real(nmezcla/real(pasos))*100, "%" , npart/ltot**3 , cinetica*(2.d0/3)
-    !call reajuste(npart,vx,vy,vz)
-    if(npart/ltot**3 .ge. 1.4d0) then !!!aunque experimentalmente es 1.06  por motivos de simulacion vamos a 1.1
-   
-     exit
-     endif
-    
-    endif
-    
-
-    
-  nmezcla=nmezcla+1 !!marcador del bucle principla
- 
-  enddo
-   onb=0
-   
-   
-   gr = 0.d0
-   HISTO = 0
-   
-   offont=1 
-   t_target=cinetica*(2.d0/3) 
-    dt=0.0001
-   do i=1, 100000
-  call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial, t_target,q,zeta,offont,qp,p_target,eta,onb,u)
-    if(mod(i, 2000) .eq. 0) then
-    cinetica=0.d0
-    do j=1, npart
-     cinetica=cinetica+(vx(j)**2 + vy(j)**2 + vz(j)**2)
-     enddo
-     
-    print*, cinetica/(3.d0*npart), "tempearturaaaaa"
-    call reajuste(npart, vx, vy, vz)
-    
-    endif
-
-    enddo
-
-   print*, "estabilizacion terminada"
-   offont=1
-   t_target=cinetica/(3*npart)
-   
-   print*, "termostato apagado, emmpezamos a "
-do i=1, npromedio*100
-call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial, t_target,q,zeta,offont,qp,p_target,eta,onb,u)
-   
-
-   if(mod(i,100) .eq. 0) then
-      
-      
-      gr_temp = 0.d0
-      histo_temp = 0
-
-      call gradial(npart, x, y, z, ltot, binsradial, dr, gr_temp, rcontar, HISTO_temp)
-
-      do j=1, binsradial
-         gr(j) = gr(j) + gr_temp(j)
-         HISTO(j) = HISTO(j) + histo_temp(j)
-      enddo
-      cinetica=0.d0
-      do j=1, npart
-      cinetica=cinetica+(vx(j)**2 + vy(j)**2 + vz(j)**2)
-      enddo
-      print*, cinetica/npart, "tempearturaaaaa"
-      
-      
-   endif
-   enddo
-
-   do j=1, binsradial
-   gr(j) = gr(j) / npromedio
-   HISTO(j) = HISTO(j) / npromedio
-   enddo
-
-
-
-
-
-
- open(266,file="finish.txt")
- do i=1,npart
  !print*,  x(i),y(i),z(i)
- write(266,*) x(i),y(i),z(i)
+  write(86,*) x(i),y(i),z(i)
  
- enddo
-
- open(377,file="velocidadesfinsih.txt")
- do i=1,npart
- write(377,*) vx(i),vy(i),vz(i)
- enddo
-  close(377)
+  enddo
+  close(86)
 
 
-      vmodu=0.d0
-      do i=1,npart
-      vmodu(i)=sqrt(vx(i)**2 +vy(i)**2 +vz(i)**2)
-      enddo
-      call histograma(vmodu, bins, npart, px, a, b)
-      open(110,file="vfinalfinish.txt")
-      do i=1,bins
-       write(110,*) a+(b-a)*i/bins, px(i)/(b-a)
-      enddo
- 
 
 
-  call histograma(x, bins, npart, px, a, b)
-  open(555,file="diradialfinish.txt")
-  DO i=1, bins
-   write(555, *) a+(b-a)*i/bins, px(i)
-   enddo
-   close(555)
-
-
-    !!Numero de bins recomendado para 216 particulas
-    
-    
-     open(299,file="grfinish.txt")
-     open(311, file="histogrfinish.txt")
-     do i=1,binsradial
-      write(299,*) (i-0.5d0)*dr, gr(i)
-      write(311,*) (i-0.5d0)*dr, HISTO(i)
-      enddo
-      close(299)
-      close(311)
-      print*, "distribucion gr terminada"
-    
-     
-      call CPU_TIME(tfcpu)
-      tiempocpu=tfcpu-ticpu
-      print*, "tiempo de ejecucion " , tiempocpu/60.d0
 end program
 
  subroutine posicioninicial(x,y,z,r,lcil,npart,lcaja,diametro,count)
@@ -634,18 +415,19 @@ end program
 
 
 
-subroutine listaverlet(n, x,y,z, rcutoff, l, vecinos, nvecinos)  !!esta lista se actualiza cada cierto tiempo
+subroutine listaverlet(n, x,y,z, rcutoff,rskin, l, vecinos, nvecinos)  !!esta lista se actualiza cada cierto tiempo
      implicit none
      integer i,j
      integer n
-     real*8  rcutoff, l ,dx,dy,dz,r2,rc2
+     real*8  rcutoff, l ,dx,dy,dz,r2,rc2, rskin
+     
      real*8 :: x(1:n)
      real*8 :: y(1:n)
      real*8 :: z(1:n)
      integer :: vecinos(1:n,1:n) ! Lista de vecinos y número de vecinos por partícula
      integer :: nvecinos(1:n) 
-    
-    rc2 = (rcutoff)**2.d0  !!radio de corte/busqueda  
+     
+    rc2 = (rcutoff+rskin)**2.d0  !!radio de corte/busqueda  
     nvecinos= 0  ! Inicializar el número de vecinos a 0
 
     do i = 1, n -1
@@ -859,7 +641,7 @@ subroutine gradial(npart, x, y, z, L, nbins,dr, gr,rcontar,histo) !!entrada nbin
         if(r .lt. 0.5d0) then !!!!!!!!
         print*, r, contar
         contar=contar+1
-        else
+        elseif(r .ge. 1.d0) then
         bin = int(r/dr) + 1
         rcontar(k)=r
         k=k+1
