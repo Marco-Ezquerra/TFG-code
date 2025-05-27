@@ -165,73 +165,46 @@ program lj
  !!!MUY IMPORTANTE PRIMERO HAY QUE TERMALIZAR EL SISTEMA PARA COMENZAR A TOMAR LAS MEDIDAS UTILIZAREMOS 1000 PASOS DE TERMALIZACION
  !!FASE DE PRECALENTAMIENTO, INCICIALMENTE EL SISTEMA EMPIEZA EN UNA CONFIGURACION CON ENERGIA POTENCIAL ALTA, VAMOS A TENER UN PICO DE ENERGIA CINETICA
  !!!UTILIZAREMOS EN LA FASE DE PRECALENTAMIENTO UN TERMOSTATO PARA LLEGAR A UNAS CONDICIONES INICALES  BUENAS PARA COMENZAR A MEDIR
- pasos=100000
+
  !!! Inicialmente el sistema empieza con un pico de energia, y luego ya se estabiliza asi pues la temeratura inicial ha de modicarse
  sumv2=0.d0
  do i=1,npart
  sumv2=sumv2+ vx(i)**2 +vy(i)**2 +vz(i)**2
   enddo
- 
+  
  t_target=(sumv2)/(3.d0*npart)   
- print*, "temeratura inicial", t_target
- offont=1 !!TERMOSTATO ENCENDIDO 
- q=500*npart
- call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
- call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, ltot,potencial)
- open(200, file="evoluciontemp.txt")
- 
- onb=0!!!barostato apagado
+
+ print*, t_target, "temperatura inicial"
+  q=100*npart
+  pasos=300000
+  offont=1
+  call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
+  call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, ltot,potencial)
   do while(nmezcla .lt. pasos)
-    if(mod(nmezcla,10) .eq. 0) then 
+
+       if(mod(nmezcla,10) .eq. 0) then 
      call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos) 
-     
-     sumv2=0.d0
-     do i=1,npart
-     sumv2=sumv2+vx(i)**2 +vy(i)**2 +vz(i)**2
-      enddo
-      write(200, *) nmezcla/10, sumv2/(3*npart)
      endif
-      if(mod(nmezcla,2000) .eq. 0) then
-     call reajuste(npart,vx,vy,vz) !!VCM=0
-      endif
-call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial,t_target,q,zeta, offont,qp,p_target,eta,onb,u)
+
+ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial,t_target,q,zeta, offont,qp,p_target,eta,onb,u)
      nmezcla=nmezcla+1
-    !  virial=0.d0
-    !  do i=1,npart
-    !  virial=virial+ (x(i)-0.5d0*ltot)*fx(i)+(y(i)-0.5d0*ltot)*fy(i)+(z(i)-0.5d0*ltot)*fz(i)
-    !  enddo
-    !  write(12, *) nmezcla, virial
+     if(mod(nmezcla, 1000) .eq. 0) then
+        call reajuste(npart, vx,vy,vz)
+       endif
+
+
   enddo
-  print*, "PRECALENTAMIENTO TERMINADO"   
-  
-  close(200)
-  !!Despues del precalentamiento vamos a medir para comparar con los resultados finales
-  
-  open(86,file="fotocalentamiento.txt")
-  do i=1,npart
- !print*,  x(i),y(i),z(i)
-  write(86,*) x(i),y(i),z(i)
- 
-  enddo
-  close(86)
-    binsradial=200
-    call gradial(npart, x, y, z, ltot, binsradial,dr, gr,rcontar,HISTO) !!entrada nbins npart y las posiciones
-     open(87,file="grcalentamiento.txt")
-     
-     do i=1,binsradial
-      write(87,*) (i-0.5d0)*dr, gr(i)
-      enddo
-      close(87)
-       gr=0.d0
-       rcontar=0.d0
-       histo=0.d0
-      print*, "distribucion gr calentamiento terminada"
 
-
-   pasos=1000000
-
+   sumv2=0.d0
+   do i=1,npart
+    sumv2=sumv2+vx(i)**2+vy(i)**2 +vz(i)**2
+   enddo
+   print*, sumv2/(3.d0*npart), "temeratura calentamiento"
+   
+   pasos=5000000
+   dt=0.0001d0
     offont=0 !!TERMOSTATO ENCENDIDO 
-    q=100*npart
+   
     onb=0
     t_target=1.d0
  call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
@@ -242,22 +215,18 @@ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potenci
    print*, "empezamos enfriamiento"
    nmezcla=0
    cinetica=100000  !!PARA QUE NO SALGA DEL BUCLE
+   
   do while(nmezcla .lt. pasos)
      
+
     if(mod(nmezcla,10) .eq. 0) then 
      call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos) 
-     !call reajuste(npart,vx,vy,vz) !!VCM=0
-     sumv2=0.d0
-     do i=1,npart
-     sumv2=sumv2+vx(i)**2 +vy(i)**2 +vz(i)**2
-      enddo
-      
      endif
-     
+
  call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potencial,t_target,q,zeta, offont,qp,p_target,eta,onb,u)
-     nmezcla=nmezcla+1
-    
-   if(mod(nmezcla, 1000) .eq. 0) then
+    nmezcla=nmezcla+1
+     
+   if(mod(nmezcla, 10000) .eq. 0) then
 
      cinetica=0.d0
    do i=1,npart
@@ -275,15 +244,18 @@ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potenci
     pantalla=pantalla+1
      write(33,*) nmezcla*dt, energia, potencial,cinetica
      if(mod(pantalla, 10) .eq. 0) then
-     print*, real(nmezcla/real(pasos))*100, "%" , npart/ltot**3 , sumv2*0.5d0*(2.d0/3.d0)/npart
+     print*, real(nmezcla/real(pasos))*100, "%" , npart/ltot**3 , cinetica*(2.d0/3.d0), nmezcla, pasos
      endif
     endif
-
+        
     
-       if(t_target .gt. sumv2*0.5d0*(2.d0/3.d0)/npart) then
-       exit
-       print*, t_target, sumv2*0.5d0*(2.d0/3.d0)/npart
+       if(t_target .gt. (cinetica*2.d0/(3.d0))) then
+       
+       print*, t_target, cinetica*(2.d0/3.d0), cinetica
        print*, "salmos del calentamiento"
+       exit
+       
+
       !  dt=0.0002d0
        
       !  !cinetica=0.d0
@@ -300,7 +272,11 @@ call integrarmove(fx,fy,fz,x,y,z,vx,vy,vz,npart,dt,ltot,vecinos,nvecinos,potenci
       !     call reajuste(npart, vx,vy,vz)
           
        endif
-      
+       if(mod(nmezcla, 1000) .eq. 0) then
+        call reajuste(npart, vx,vy,vz)
+       endif
+
+
   enddo
   print*, "Enfriamiento terminado"   !!!hemos utilizado un factor de masa q muy pequeño
   close(200)
