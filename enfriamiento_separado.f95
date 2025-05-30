@@ -4,7 +4,7 @@ program lj
 
  integer i,j,nmax,bins,contar,k,binsradial, pasost,u
  integer npart,count,npartmax,nmezcla,pasos, offont,onb
- integer regular,binsmax,npromedio, pantalla
+ integer regular,binsmax,npromedio, pantalla, contador
  
  real*8 dargon,diametro,T1,T2,kb,margon,d,rnd
  real*8 sigma,v,suma,v1,v2,v3,dt
@@ -18,7 +18,7 @@ program lj
  real*8 beta, t_final, t_inicial, p0, pf, beta_p,rskin
  real*8 ticpu, tfcpu, tiempocpu
  
- parameter(npartmax=6**3) !numero total de part   !!elegir un numero de particulas que sea riaz cubica de 3
+ parameter(npartmax=8**3) !numero total de part   !!elegir un numero de particulas que sea riaz cubica de 3
  parameter(dargon=0.84d0) !kg/m^3
  parameter(diametro=1.d0) !! diametro de las partculas de argon !!hay que fijarlo como 1
  parameter(t1=1.d0) !!K
@@ -67,11 +67,12 @@ program lj
  real*8 :: zacumu(1:npartmax)
 
  real*8 :: gr_temp(1:binsmax)
+ real*8 :: grprom(1:binsmax)
  integer :: histo_temp(1:binsmax)
  
   call CPU_TIME(ticpu) 
   
-  npart=6**3
+  npart=8**3
   ltot=(npart*margon/(dargon))**(1.d0/3.d0) 
  print*, ltot ,"L"
   
@@ -85,10 +86,12 @@ program lj
  !!UNIDADES REDUCIDAS-----------------------------------------------
  sigma=sqrt(kb*T1/margon)  !!velocidad cuadratica media para una componente
  sigma=sigma/sqrt(epsilon*kb/margon)    !!unidades reducidas
- dt=0.0005d0 !!para asegurar la estabilidad de verlet 
+ dt=0.0001d0 !!para asegurar la estabilidad de verlet 
  ltot=ltot/diametro
  lcaja=lcaja/diametro
  tt=t1/epsilon
+ contador=0
+
  
  print*, SIGMA, dt,ltot,lcaja
  print*, ltot, "longitud inical"
@@ -180,6 +183,7 @@ program lj
   offont=1
   call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos)
   call fuerzas(npart, x,y,z,fx,fy,fz, vecinos, nvecinos, ltot,potencial)
+  grprom=0.d0
   do while(nmezcla .lt. pasos)
 
        if(mod(nmezcla,10) .eq. 0) then 
@@ -217,7 +221,11 @@ program lj
    cinetica=100000  !!PARA QUE NO SALGA DEL BUCLE
    
   do while(nmezcla .lt. pasos)
-     
+     if(nmezcla .eq. pasos/2 .and. contador .eq. 0) then
+       dt=dt/2
+       pasos=2*pasos
+       contador=1
+       endif
 
     if(mod(nmezcla,10) .eq. 0) then 
      call listaverlet(npart, x,y,z, rcutoff,rskin, ltot, vecinos, nvecinos) 
@@ -249,31 +257,40 @@ program lj
     endif
         
     
-       if(t_target .gt. (cinetica*2.d0/(3.d0))) then
+      !  if(t_target .gt. (cinetica*2.d0/(3.d0))) then
        
-       print*, t_target, cinetica*(2.d0/3.d0), cinetica
-       print*, "salmos del calentamiento"
-       exit
+      !  print*, t_target, cinetica*(2.d0/3.d0), cinetica
+      !  print*, "salmos del calentamiento"
+      !  exit
        
 
-      !  dt=0.0002d0
+      ! !  dt=0.0002d0
        
-      !  !cinetica=0.d0
-      !  do j=1, npart
-      !  xacumu(j)=x(j)+xacumu(j)
-      !  yacumu(j)=y(j)+yacumu(j)
-      !  zacumu(j)=z(j)+zacumu(j)
-      !  !cinetica=vx(j)**2+vy(j)**2+vz(j)**2 +cinetica
-      !  enddo
+      ! !  !cinetica=0.d0
+      ! !  do j=1, npart
+      ! !  xacumu(j)=x(j)+xacumu(j)
+      ! !  yacumu(j)=y(j)+yacumu(j)
+      ! !  zacumu(j)=z(j)+zacumu(j)
+      ! !  !cinetica=vx(j)**2+vy(j)**2+vz(j)**2 +cinetica
+      ! !  enddo
       
-      !  endif
+      ! !  endif
     
-      !  if(mod(i, 2000) .eq. 0) then 
-      !     call reajuste(npart, vx,vy,vz)
+      ! !  if(mod(i, 2000) .eq. 0) then 
+      ! !     call reajuste(npart, vx,vy,vz)
           
-       endif
+      !  endif
        if(mod(nmezcla, 1000) .eq. 0) then
         call reajuste(npart, vx,vy,vz)
+       endif
+
+       if(mod(nmezcla,pasos/npromedio) .eq. 0) then
+        
+        binsradial=150
+        call gradial(npart, x, y, z, ltot, binsradial,dr, gr,rcontar,HISTO) !!entrada nbins npart y las posiciones
+        do i=1, binsradial
+        grprom(i)=grprom(i)+gr(i)
+        enddo
        endif
 
 
@@ -282,7 +299,7 @@ program lj
   close(200)
   !!Despues del precalentamiento vamos a medir para comparar con los resultados finales
   !!Vamos a promediar las ultimas posiciones
-   
+      
 
       open(88,file="fotofinis_sinpromediar.txt")
       do i=1,npart
@@ -293,7 +310,7 @@ program lj
         close(88)
 
 
-        binsradial=80
+        binsradial=150
     call gradial(npart, x, y, z, ltot, binsradial,dr, gr,rcontar,HISTO) !!entrada nbins npart y las posiciones
      open(89,file="grfinish_sinpromediar.txt")
      
@@ -309,7 +326,23 @@ program lj
     x=xacumu/npromedio
     y=yacumu/npromedio
     z=zacumu/npromedio
+    
 
+
+     grprom=grprom/npromedio
+
+     open(899, file="gr_final.txt")
+     do i=1,binsradial
+      write(899,*) (i-0.5d0)*dr, grprom(i)
+      enddo
+      close(899)
+       gr=0.d0
+       rcontar=0.d0
+       histo=0.d0
+      print*, "distribucion gr promediada terminada"
+     !!!ya hemos cogido los ultimos npromedio posiciones
+
+    
 
 
 
@@ -617,11 +650,11 @@ subroutine gradial(npart, x, y, z, L, nbins,dr, gr,rcontar,histo) !!entrada nbin
         if(r .lt. 0.5d0) then !!!!!!!!
         print*, r, contar
         contar=contar+1
-        elseif(r .ge. 1.d0) then
+        elseif(r .ge. 0.88d0) then
         bin = int(r/dr) + 1
         rcontar(k)=r
         k=k+1
-        if (bin .gt.1 .and. bin .le. nbins) then
+        if (bin .ge. 1.d0 .and. bin .le. nbins) then
           histo(bin) = histo(bin) + 2  ! Cada par cuenta para ambas partículas
         end if
       end if
@@ -633,7 +666,7 @@ subroutine gradial(npart, x, y, z, L, nbins,dr, gr,rcontar,histo) !!entrada nbin
   rho=npart/ l**3
   !Normalización de g(r)
   do bin = 1, nbins
-    r = (bin - 0.5d0)*dr
+    r = (bin - 0.5d0)*dr+0.12d0    !!nuestro 1 en la simulacion es 0.88 que es donde hacemos la f max, por o tanto desplazamos el r 0.12 
     vol_bin = 4.d0*pi* r**2 * dr  ! Volumen de la capa esférica
     norma = rho * npart * vol_bin
     if (norma .gt. 0.d0) then
