@@ -41,5 +41,5 @@ Estos programas permiten simular de forma realista la evolución dinámica de si
 Los códigos están escritos en Fortran 90/95. Se recomienda utilizar `gfortran`:
 
 ```bash
-gfortran -O3 -o termostato termostato.f95
+gfortran -ffast-math -O2 -o termostato termostato.f95
 ./termostato
