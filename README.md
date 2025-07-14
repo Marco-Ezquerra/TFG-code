@@ -1,6 +1,6 @@
 # Dinámica Molecular con Termostato y Baróstato de Nosé–Hoover
 
-Este repositorio forma parte del Trabajo Fin de Grado titulado **“Simulación de la Entropía en Dinámica Molecular”**, presentado en la Universidad de Salamanca. El objetivo general del proyecto es ilustrar el aumento de la entropía en sistemas físicos a través de simulaciones computacionales. En particular, esta sección del trabajo se centra en el estudio de un fluido denso modelado mediante el potencial de Lennard-Jones, bajo condiciones termodinámicas controladas por termostatos y baróstatos de Nosé–Hoover.
+Este repositorio forma parte de mi Trabajo Fin de Grado titulado **“Simulación de la Entropía en sistemas clásicos”**, presentado en la Universidad de Salamanca. El objetivo general del proyecto es ilustrar el aumento de la entropía en sistemas físicos a través de simulaciones computacionales. En particular, esta sección del trabajo se centra en el estudio de un fluido denso modelado mediante el potencial de Lennard-Jones, bajo condiciones termodinámicas controladas por termostatos y baróstatos de Nosé–Hoover.
 
 ## Archivos principales
 
