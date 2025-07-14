@@ -8,21 +8,7 @@ Este repositorio forma parte de mi Trabajo Fin de Grado titulado **“Simulació
 
 - `barostato.f90`: Código Fortran que extiende el sistema anterior para incluir un **baróstato de Nosé–Hoover**, permitiendo simular en el ensamble isobárico-isotérmico (NPT). Este código ajusta dinámicamente el volumen de la caja de simulación para mantener la presión constante, permitiendo la observación de fenómenos como la cristalización inducida por enfriamiento y compresión.
 
-## Fundamento físico
 
-Ambos códigos están fundamentados en la **formulación hamiltoniana extendida** de Nosé–Hoover, que garantiza que el sistema siga la distribución de Gibbs correspondiente al ensamble deseado (NVT o NPT). Las ecuaciones de movimiento derivadas incluyen:
-
-- Para el termostato:
-$$
-  m_i \ddot{q}_i = F_i - \xi m_i \dot{q}_i, \quad
-  \dot{\xi} = \frac{1}{Q} \left( \sum_i m_i \dot{q}_i^2 - g k_B T \right)
-  $$
-
-- Para el baróstato:
-  $$
-  \dot{V} = \frac{p_V}{W}, \quad
-  \dot{p}_V = P_{\text{int}} - P_{\text{ext}}
-  $$
 ## Objetivo computacional
 
 Estos programas permiten simular de forma realista la evolución dinámica de sistemas moleculares sometidos a cambios térmicos y volumétricos controlados. Entre los fenómenos estudiados destacan:
