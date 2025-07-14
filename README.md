@@ -13,15 +13,16 @@ Este repositorio forma parte de mi Trabajo Fin de Grado titulado **“Simulació
 Ambos códigos están fundamentados en la **formulación hamiltoniana extendida** de Nosé–Hoover, que garantiza que el sistema siga la distribución de Gibbs correspondiente al ensamble deseado (NVT o NPT). Las ecuaciones de movimiento derivadas incluyen:
 
 - Para el termostato:
-  $$
-  m_i \ddot{q}_i = F_i - \xi m_i \dot{q}_i, \quad \dot{\xi} = \frac{1}{Q} \left( \sum_i m_i \dot{q}_i^2 - g k_B T \right)
+$$
+  m_i \ddot{q}_i = F_i - \xi m_i \dot{q}_i, \quad
+  \dot{\xi} = \frac{1}{Q} \left( \sum_i m_i \dot{q}_i^2 - g k_B T \right)
   $$
 
 - Para el baróstato:
   $$
-  \dot{V} = \frac{p_V}{W}, \quad \dot{p}_V = P_{\text{int}} - P_{\text{ext}}
+  \dot{V} = \frac{p_V}{W}, \quad
+  \dot{p}_V = P_{\text{int}} - P_{\text{ext}}
   $$
-
 ## Objetivo computacional
 
 Estos programas permiten simular de forma realista la evolución dinámica de sistemas moleculares sometidos a cambios térmicos y volumétricos controlados. Entre los fenómenos estudiados destacan:
